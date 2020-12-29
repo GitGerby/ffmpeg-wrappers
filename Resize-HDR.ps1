@@ -6,65 +6,44 @@ param (
     $InputFile,
     [String]
     $OutputFile = "$($InputFile)_output.mkv",
-    [ValidateSet('amf','libx265','nvenc')]
+    # At this time only libx265 supports setting the appropriate colorspace flags for HDR content.
+    [ValidateSet('libx265')]
     [String]
     $Encoder = 'libx265',
     [int]
     $Crf = 17,
     [ValidateSet('grain','animation')]
     [String]
-    $tune = ''
+    $tune = '',
+    [ValidateSet('ultrafast','superfast','veryfast','faster','fast','medium','slow','slower','veryslow')]
+    $preset = 'medium',
+    [int]
+    $CropScan = 120,
+    [Switch]
+    $DisableHardwareDecode
 )
 
 # Define Constants for encoder arguments
-$NVENCARGS = @(
-  '-c:v', 'hevc_nvenc',
-  '-rc', 'vbr',
-  '-cq', $Crf,
-  '-profile:v', '1',
-  '-tier', '1',
-  '-spatial_aq', '1',
-  '-rc_lookahead', '48'
-)
-
-$AMFARGS = @(
-  '-c:v', 'hevc_amf',
-  '-rc', '2',
-  '-quality', '0',
-  '-min_qp_p', '2',
-  '-min_qp_i', '2',
-  '-max_qp_p', "$($Crf+3)"
-  '-max_qp_i', "$($Crf+3)"
-  '-vbaq', '1',
-  '-preanalysis', '1',
-  '-profile_tier', '1',
-  '-level', '186',
-  '-usage', '0'
-)
-
 $LIBX265ARGS = @(
   '-c:v', 'libx265',
   '-crf', $crf,
-  '-preset', 'fast'
+  '-preset', $preset
 )
 if ($tune -ne ''){
   $LIBX265ARGS += @('-tune', $tune)
 }
 
-# Scan the first 15 minutes of the file to detect what can be cropped
-Write-Host 'Scanning the first 120 seconds to determine proper crop settings.'
+# Scan the first N seconds of the file to detect what can be cropped
+Write-Host 'Scanning the first n seconds to determine proper crop settings.'
 $cropdetectargs = @('-hide_banner')
-switch ($Encoder) {
-  'amf' { $cropdetectargs += @('-hwaccel', 'auto')}
-  'nvenc' { $cropdetectargs += @('-hwaccel', 'nvdec')}
-  'qsv' { $cropdetectargs += @('-hwaccel', 'auto')}
-  Default {}
+if (!$DisableHardwareDecode) {
+  $cropdetectargs += @('-hwaccel', 'auto')
 }
 $cropdetectargs += @(
   '-analyzeduration', '6000M',
   '-probesize', '6000M'
   '-i', "$InputFile", 
-  '-t', '120', 
+  '-t', $CropScan, 
   '-vf', 'cropdetect=round=2',
   '-max_muxing_queue_size', '4096', 
   '-f', 'null', 'NUL')
@@ -102,11 +81,8 @@ $encodeargs = @(
   '-probesize', '6000M'
 )
 # Set decoder
-switch ($Encoder) {
-  'amf' { $encodeargs += @('-hwaccel', 'auto')}
-  'nvenc' { $encodeargs += @('-hwaccel', 'nvdec')}
-  'qsv' { $encodeargs += @('-hwaccel', 'qsv')}
-  Default {}
+if (!$DisableHardwareDecode) {
+  $encodeargs += @('-hwaccel', 'auto')
 }
 
 # Set input
@@ -122,7 +98,7 @@ switch ($Encoder) {
   'libx265' {$encodeargs += $LIBX265ARGS}
 }
 
-# Add crop filter
+# Add filters
 $encodeargs += @(
   '-vf', $crop
 )
