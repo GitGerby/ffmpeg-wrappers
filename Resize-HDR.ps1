@@ -34,7 +34,7 @@ if ($Tune -ne ''){
 }
 
 # Scan the first N seconds of the file to detect what can be cropped
-Write-Host 'Scanning the first n seconds to determine proper crop settings.'
+Write-Host "Scanning the first $CropScan seconds to determine proper crop settings."
 $cropdetectargs = @('-hide_banner')
 if (!$DisableHardwareDecode) {
   $cropdetectargs += @('-hwaccel', 'auto')
