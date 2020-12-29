@@ -135,7 +135,7 @@ $hdrparams = 'hdr-opt=1:repeat-headers=1:colorprim=' + $hdrmeta.color_primaries 
   "R($($colordata.red_x),$($colordata.red_y))" +
   "WP($($colordata.white_point_x),$($colordata.white_point_y))" + 
   "L($($colordata.max_luminance),$($colordata.min_luminance))" +
-  "max-cll=0,0"
+  ":max-cll=0,0"
 
 $encodeargs += @(
   '-x265-params', $hdrparams
