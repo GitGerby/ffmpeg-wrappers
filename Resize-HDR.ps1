@@ -11,14 +11,14 @@ param (
     [String]
     $Encoder = 'libx265',
     [int]
-    $Crf = 17,
+    $Crf = 18,
     [ValidateSet('grain','animation')]
     [String]
-    $tune = '',
+    $Tune = '',
     [ValidateSet('ultrafast','superfast','veryfast','faster','fast','medium','slow','slower','veryslow')]
-    $preset = 'medium',
+    $Preset = 'medium',
     [int]
-    $CropScan = 120,
+    $CropScan = 300,
     [Switch]
     $DisableHardwareDecode
 )
@@ -27,10 +27,10 @@ param (
 $LIBX265ARGS = @(
   '-c:v', 'libx265',
   '-crf', $crf,
-  '-preset', $preset
+  '-preset', $Preset
 )
-if ($tune -ne ''){
-  $LIBX265ARGS += @('-tune', $tune)
+if ($Tune -ne ''){
+  $LIBX265ARGS += @('-tune', $Tune)
 }
 
 # Scan the first N seconds of the file to detect what can be cropped
@@ -85,7 +85,7 @@ if (!$DisableHardwareDecode) {
   $encodeargs += @('-hwaccel', 'auto')
 }
 
-# Set input
+# Set input, map all streams.
 $encodeargs += @(
   '-i', $InputFile,
   '-map','0'
