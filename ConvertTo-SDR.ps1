@@ -59,6 +59,10 @@ $NVENCARGS = @(
   '-preset', $nvpreset
 )
 
+if ($(& ffmpeg *>&1) -notmatch 'opencl' -and -not $DisableOpenCL) {
+  throw 'ffmpeg was not compiled with OpenCL support and OpenCL was not disabled at runtime'
+}
+
 if (-not $DoNotCrop){
   Write-Host "Scanning the first $CropScan seconds to determine proper crop settings."
   $cropdetectargs = @('-hide_banner')
