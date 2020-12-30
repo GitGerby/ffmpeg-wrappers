@@ -106,8 +106,6 @@ $encodeargs += @(
 )
 # Set encoder
 switch ($Encoder) {
-  'amf' {$encodeargs += $AMFARGS}
-  'nvenc' {$encodeargs += $NVENCARGS}
   'libx265' {$encodeargs += $LIBX265ARGS}
 }
 
