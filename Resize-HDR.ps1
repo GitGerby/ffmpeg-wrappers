@@ -36,7 +36,7 @@ if ($Tune -ne ''){
 # Scan the first N seconds of the file to detect what can be cropped
 Write-Host "Scanning the first $CropScan seconds to determine proper crop settings."
 $cropdetectargs = @('-hide_banner')
-if (!$DisableHardwareDecode) {
+if (-not $DisableHardwareDecode) {
   $cropdetectargs += @('-hwaccel', 'auto')
 }
 $cropdetectargs += @(
@@ -57,9 +57,20 @@ Write-Host "Using $crop"
 
 # Extract and normalize color settings
 Write-Host 'Detecting color space and HDR parameters'
-$rawprobe = & ffprobe -hide_banner -loglevel warning -select_streams v -print_format json -show_frames -read_intervals "%+#1" -show_entries "frame=color_space,color_primaries,color_transfer,side_data_list,pix_fmt" -i "$InputFile"
+$ffprobeargs = @(
+  '-hide_banner',
+  '-loglevel', 'warning'
+  '-select_stream', 'v'
+  '-analyzeduration', '6000M',
+  '-probesize', '6000M',
+  '-print_format', 'json',
+  '-show_frames',
+  '-read_intervals', "%+#1",
+  '-show_entries', 'frame=color_space,color_primaries,color_transfer,side_data_list,pix_fmt',
+  '-i', $InputFile
+)
+$rawprobe = & ffprobe @ffprobeargs
 $hdrmeta = ($rawprobe | ConvertFrom-Json).Frames
-
 
 $colordata = @{}
 $colordata['red_x'] = [int]$($hdrmeta.side_data_list.red_x -split '/')[0] * (50000 / ($($hdrmeta.side_data_list.red_x -split '/')[1]))
@@ -74,6 +85,10 @@ $colordata['white_point_y'] = [int]$($hdrmeta.side_data_list.white_point_y -spli
 $colordata['max_luminance'] = [int]($($hdrmeta.side_data_list.max_luminance -split '/')[0] * (10000 / ($($hdrmeta.side_data_list.max_luminance -split '/')[1])))
 $colordata['min_luminance'] = [int]($($hdrmeta.side_data_list.min_luminance -split '/')[0] * (10000 / ($($hdrmeta.side_data_list.min_luminance -split '/')[1])))
 
+$contentlightlevel = @{
+  'max_content' = [int]$hdrmeta.side_data_list.max_content;
+  'max_avg' = [int]$hdrmeta.side_data_list.max_average;
+} 
 
 $encodeargs = @(
   '-hide_banner',
@@ -85,12 +100,10 @@ if (!$DisableHardwareDecode) {
   $encodeargs += @('-hwaccel', 'auto')
 }
 
-# Set input, map all streams.
 $encodeargs += @(
   '-i', $InputFile,
   '-map','0'
 )
-
 # Set encoder
 switch ($Encoder) {
   'amf' {$encodeargs += $AMFARGS}
@@ -112,7 +125,7 @@ $hdrparams = 'hdr-opt=1:repeat-headers=1:colorprim=' + $hdrmeta.color_primaries 
   "R($($colordata.red_x),$($colordata.red_y))" +
   "WP($($colordata.white_point_x),$($colordata.white_point_y))" + 
   "L($($colordata.max_luminance),$($colordata.min_luminance))" +
-  ":max-cll=0,0"
+  ":max-cll=$($contentlightlevel['max_content']),$($contentlightlevel['max_avg'])"
 
 $encodeargs += @(
   '-x265-params', $hdrparams
