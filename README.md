@@ -1,15 +1,19 @@
 # FFMPEG-WRAPPERS
+
 Exactly what it says on the tin: a set of scripts that are meant to wrap ffmpeg
 execution. These scripts were constructed for my own use but are intended to
 include sane defaults with enough flexibility to adapt to most situations.
 
 ## Installation
+
   1. Install ffmpeg; ensure the executable is in PATH
   2. Copy scripts locally (or just clone this repo)
   3. Run the script you need.
 
 ## Scripts
+
 ### Resize-HDR.ps1
+
 Designed to crop letterboxing or pillar boxing from a file; HDR metadata will be preserved and all audio and subtitle streams will be copied to the output file.
 
 #### Parameters
