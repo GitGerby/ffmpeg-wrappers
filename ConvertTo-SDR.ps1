@@ -6,7 +6,7 @@ param (
     $InputFile,
     [String]
     $OutputFile = "$($InputFile)_output.mkv",
-    [ValidateSet('libx265','nvenc')]
+    [ValidateSet('libx265','nvenc', 'qsv')]
     [String]
     $Encoder = 'nvenc',
     [int]
@@ -59,6 +59,26 @@ $NVENCARGS = @(
   '-preset', $nvpreset
 )
 
+switch ($Preset){
+  'veryfast' { $qsvpreset = 7 }
+  'faster' { $qsvpreset = 6 }
+  'fast' { $qsvpreset = 5 }
+  'medium' { $qsvpreset = 4 }
+  'slow' { $qsvpreset = 3 }
+  'slower' { $qsvpreset = 2 }
+  'veryslow' { $qsvpreset = 1 }
+  Default { $qsvpreset = 4 }
+}
+
+$QSVARGS = @(
+   '-c:v', 'hevc_qsv',
+   '-adaptive_i', '1',
+   '-adaptive_b', '1',
+   '-global_quality', $Crf,
+   '-preset', $qsvpreset,
+   '-look_ahead', '48'
+)
+
 if ($(& ffmpeg *>&1) -notmatch 'opencl' -and -not $DisableOpenCL) {
   throw 'ffmpeg was not compiled with OpenCL support and OpenCL was not disabled at runtime'
 }
@@ -103,10 +123,23 @@ if (-not $DisableOpenCL) {
 
 # Set decoder
 if (!$DisableHardwareDecode) {
-  $encodeargs += @(
-    '-hwaccel', 'auto', 
-    '-hwaccel_output_format', 'p010'
-  )
+  switch($Encoder) {
+    'nvenc' {
+      $encodeargs += @(
+        '-hwaccel', 'nvdec',
+        '-hwaccel_output_format', 'p010'
+      )
+    }
+    'qsv' {
+      $encodeargs += @(
+        '-hwaccel', 'qsv',
+        '-hwaccel_output_format', 'qsv'
+    }
+    Default {
+      '-hwaccel', 'auto',
+      '-hwaccel_output_format', 'p010'
+    }
+  }
 }
 
 # Input file and specify that all streams should be mapped across to output
@@ -116,10 +149,14 @@ $encodeargs += @(
 )
 
 # Construct filter graph
+$filters = ''
+if ($Encoder -eq 'qsv') {
+  $filters += 'format=p010,'
+}
+
 $opencltonemap = "hwupload,tonemap_opencl=t=bt2020:tonemap=$ToneMapMethod:format=p010,hwdownload,format=p010"
 $softwaretonemap = "zscale=linear,tonemap=$ToneMapMethod,zscale=transfer=bt709"
 
-$filters = ""
 if ($DisableOpenCL) {
   $filters += $softwaretonemap
 } else {
@@ -140,8 +177,9 @@ $encodeargs += @(
 )
 
 switch ($Encoder) {
-  'nvenc' {$encodeargs += $NVENCARGS}
-  'libx265' {$encodeargs += $LIBX265ARGS}
+  'nvenc' { $encodeargs += $NVENCARGS }
+  'libx265' { $encodeargs += $LIBX265ARGS }
+  'qsv' { $encodeargs += $QSVARGS }
 }
 
 # Copy audio and subtitle streams, ensure sufficient muxer space
