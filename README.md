@@ -37,8 +37,8 @@ This script tonemaps an HDR file to SDR and by default will crop any black bars 
 
 #### Parameters
 
-* **Encoder** - Optional, accepts `libx265`, `nvenc`, and `qsv` at this time; defaults to `nvenc`. `nvenc` and `qsv` rely on the underlying hardware support; `nvenc` requires an nVidia gpu that supports HEVC encoding while `qsv` requires Intel Quicksync support for HEVC.
+* **Encoder** - Optional, accepts `libx265`, `nvenc`, and `qsv` at this time; defaults to `nvenc`. `nvenc` and `qsv` rely on underlying hardware support; `nvenc` requires an nVidia gpu that supports HEVC encoding while `qsv` requires Intel Quicksync support for HEVC.
 * **DoNotCrop** - Don't crop black bars from the output file.
-* **DisableOpenCL** - Disables OpenCl tonemapping; this results in the tonemapping filter running on the CPU; expect it to be slow. Necessary on machines that don't have hardware that supports OpenCL.
+* **DisableOpenCL** - Disables OpenCL tonemapping; this results in the tonemapping filter running on the CPU; expect it to be slow. Necessary on machines that don't have hardware that supports OpenCL.
 * **GpuIndex** - Specify the GPU to use for OpenCL tasks; defaults to the first GPU on the system `0.0`.
 * **ToneMapMethod** - Specify the tone mapping algorithm to use; can be any of `none`, `clip`, `linear`, `gamma`, `reinhard`, `hable`, `mobius`. See the ffmpeg documentation for a description of each. Defaults to `hable`.
