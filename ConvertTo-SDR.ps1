@@ -79,7 +79,16 @@ $QSVARGS = @(
    '-look_ahead', '48'
 )
 
-if ($(& ffmpeg *>&1) -notmatch 'opencl' -and -not $DisableOpenCL) {
+# Locate ffmpeg
+if (Test-Path "$PSScriptRoot\ffmpeg.exe") {
+  $ffmpegbinary = "$PSScriptRoot\ffmpeg.exe"
+} elseif (Get-Command 'ffmpeg') {
+  $ffmpegbinary = $(Get-Command 'ffmpeg').Source
+} else {
+  throw "Could not locate ffmpeg in $PSScriptRoot or PATH"
+}
+
+if ($(& $ffmpegbinary *>&1) -notmatch 'opencl' -and -not $DisableOpenCL) {
   throw 'ffmpeg was not compiled with OpenCL support and OpenCL was not disabled at runtime'
 }
 
@@ -98,7 +107,7 @@ if (-not $DoNotCrop){
     '-max_muxing_queue_size', '4096', 
     '-f', 'null', 'NUL')
 
-  & ffmpeg @cropdetectargs *>&1 | 
+  & $ffmpegbinary @cropdetectargs *>&1 | 
     Foreach-Object {
       $_ -match '(crop=[-\d:]*)' | Out-Null
     }
@@ -192,4 +201,4 @@ $encodeargs += @(
 # Specify destination
 $encodeargs += @($OutputFile)
 Write-Host "Calling ffmpeg with: $($encodeargs -join ' ')"
-& ffmpeg @encodeargs
+& $ffmpegbinary @encodeargs

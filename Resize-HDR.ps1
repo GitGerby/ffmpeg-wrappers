@@ -33,6 +33,15 @@ if ($Tune -ne ''){
   $LIBX265ARGS += @('-tune', $Tune)
 }
 
+# Locate ffmpeg
+if (Test-Path "$PSScriptRoot\ffmpeg.exe") {
+  $ffmpegbinary = "$PSScriptRoot\ffmpeg.exe"
+} elseif (Get-Command 'ffmpeg') {
+  $ffmpegbinary = $(Get-Command 'ffmpeg').Source
+} else {
+  throw "Could not locate ffmpeg in $PSScriptRoot or PATH"
+}
+
 # Scan the first N seconds of the file to detect what can be cropped
 Write-Host "Scanning the first $CropScan seconds to determine proper crop settings."
 $cropdetectargs = @('-hide_banner')
@@ -48,7 +57,7 @@ $cropdetectargs += @(
   '-max_muxing_queue_size', '4096', 
   '-f', 'null', 'NUL')
 
-& ffmpeg @cropdetectargs *>&1 | 
+& $ffmpegbinary @cropdetectargs *>&1 | 
   Foreach-Object {
     $_ -match '(crop=[-\d:]*)' | Out-Null
   }
@@ -144,4 +153,4 @@ $encodeargs += @(
 # Specify destination
 $encodeargs += @($OutputFile)
 Write-Host "Calling ffmpeg with: $($encodeargs -join ' ')"
-& ffmpeg @encodeargs
+& $ffmpegbinary @encodeargs
