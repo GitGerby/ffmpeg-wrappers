@@ -143,6 +143,7 @@ if (!$DisableHardwareDecode) {
       $encodeargs += @(
         '-hwaccel', 'qsv',
         '-hwaccel_output_format', 'qsv'
+      )
     }
     Default {
       '-hwaccel', 'auto',
