@@ -42,6 +42,15 @@ if (Test-Path "$PSScriptRoot\ffmpeg.exe") {
   throw "Could not locate ffmpeg in $PSScriptRoot or PATH"
 }
 
+# Locate ffprobe
+if (Test-Path "$PSScriptRoot\ffprobe.exe") {
+  $ffprobebinary = "$PSScriptRoot\ffprobe.exe"
+} elseif (Get-Command 'ffprobe') {
+  $ffprobebinary = $(Get-Command 'ffprobe').Source
+} else {
+  throw "Could not locate ffprobe in $PSScriptRoot or PATH"
+}
+
 # Scan the first N seconds of the file to detect what can be cropped
 Write-Host "Scanning the first $CropScan seconds to determine proper crop settings."
 $cropdetectargs = @('-hide_banner')
@@ -78,7 +87,7 @@ $ffprobeargs = @(
   '-show_entries', 'frame=color_space,color_primaries,color_transfer,side_data_list,pix_fmt',
   '-i', $InputFile
 )
-$rawprobe = & ffprobe @ffprobeargs
+$rawprobe = & $ffprobebinary @ffprobeargs
 $hdrmeta = ($rawprobe | ConvertFrom-Json).Frames
 
 $colordata = @{}
