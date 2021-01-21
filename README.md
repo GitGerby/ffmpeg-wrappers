@@ -16,8 +16,7 @@ include sane defaults with enough flexibility to adapt to most situations.
 
 * **InputFile** - Full path to the source file to be cropped and transcoded. This parameter is mandatory.
 * **OutputFile** - Full path to the file to output once cropping and transcoding are done. This parameter is optional, if it's not specified a new file will be created in the same directory as the input file with `_output.mkv` appeneded to the filename.
-
-* **CRF** - Quality to use when transcoding; lower numbers result in higher quality and larger file sizes. For a more complete explanation check the ffmpeg docs on rate control options. This script does not support target bitrates or target sizes.
+* **CRF** - Quality to use when transcoding; lower numbers result in higher quality and larger file sizes. For a more complete explanation check the ffmpeg docs on rate control options. This script does not support target bitrates or target sizes. Note that the `vce` encoder does not have a concept of constant quality or constant rate factor; when using the `vce` encoder we clamp the maximum quantization parameter of p-frames at crf+6. 
 * **Tune** - x265 supports the `grain` and `animation` tunes to better preserve film grain or improve compression of animated content. If you don't need either of these leave it blank.
 * **Preset** - x265 has various presets for compression options, in general slower options gives you more visual quality per encoded bit resulting in either smaller file sizes or higher percieved quality for the same file size. Can be any of `ultrafast`, `superfast`, `veryfast`, `faster`, `fast`, `medium`, `slow`, `slower`, `veryslow`.
 * **CropScan** - Seconds of the input file to scan when detecting how much of the display area to crop; defaults to 300 seconds (5 minutes). If you find that parts of the image are being cut off try extending this.
@@ -37,7 +36,7 @@ This script tonemaps an HDR file to SDR and by default will crop any black bars 
 
 #### Parameters
 
-* **Encoder** - Optional, accepts `libx265`, `nvenc`, and `qsv` at this time; defaults to `nvenc`. `nvenc` and `qsv` rely on underlying hardware support; `nvenc` requires an nVidia gpu that supports HEVC encoding while `qsv` requires Intel Quicksync support for HEVC.
+* **Encoder** - Optional, accepts `libx265`, `nvenc`, `qsv`, and `vce` at this time; defaults to `nvenc`. `nvenc`, `qsv`, and `vce` rely on underlying hardware support; `nvenc` requires an nVidia gpu that supports HEVC encoding while `qsv` requires Intel Quicksync support for HEVC; `vce` requires an AMD gpu with HEVC support.
 * **DoNotCrop** - Don't crop black bars from the output file.
 * **DisableOpenCL** - Disables OpenCL tonemapping; this results in the tonemapping filter running on the CPU; expect it to be slow. Necessary on machines that don't have hardware that supports OpenCL.
 * **GpuIndex** - Specify the GPU to use for OpenCL tasks; defaults to the first GPU on the system `0.0`.
