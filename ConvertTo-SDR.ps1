@@ -105,13 +105,18 @@ if (Test-Path "$PSScriptRoot\ffmpeg.exe") {
 }
 
 Write-Host "Using ffmpeg binary at: $ffmpegbinary"
-<#
-$banner = & $ffmpegbinary *>&1
 
-if ($banner -notmatch 'opencl' -and -not $DisableOpenCL) {
-  throw 'ffmpeg was not compiled with OpenCL support and OpenCL was not disabled at runtime'
+$openclsupport = $false
+& $ffmpegbinary *>&1 | ForEach-Object {
+  if ($_ -match 'opencl') {
+    $script:openclsupport = $true
+  }
 }
-#>
+
+if (-not $openclsupport) {
+  Write-Host 'ffmpeg binary does not support opencl, disabling opencl processing.'
+  $DisableOpenCL = $true
+}
 
 if (-not $DoNotCrop){
   Write-Host "Scanning the first $CropScan seconds to determine proper crop settings."
@@ -130,9 +135,12 @@ if (-not $DoNotCrop){
 
   & $ffmpegbinary @cropdetectargs *>&1 | 
     Foreach-Object {
-      $_ -match '(crop=[-\d:]*)' | Out-Null
+      $_ -match 't:([\d]*).*?(crop=[-\d:]*)' | Out-Null
+      if ($matches[1] -ge 0) {
+        Write-Progress -Activity 'Detecting crop settings' -Status "t=$($matches[1]) $($matches[2])" -PercentComplete $($([int]$matches[1] / $CropScan)*100)
+      }
     }
-  $crop = $matches[1]
+  $crop = $matches[2]
   Write-Host "Using $crop"
 }
 
@@ -185,6 +193,11 @@ $encodeargs += @(
 
 # Construct filter graph
 $filters = ''
+
+if (-not $DoNotCrop) {
+  $filters += "$crop,"
+}
+
 switch ($Encoder) {
   'qsv' { $filters += 'format=p010,' }
   'vce' { $filters += 'format=p010,' }
@@ -197,10 +210,6 @@ if ($DisableOpenCL) {
   $filters += $softwaretonemap
 } else {
   $filters += $opencltonemap
-}
-
-if (-not $DoNotCrop) {
-  $filters += ",$crop"
 }
 
 switch ($Encoder) {

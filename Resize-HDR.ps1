@@ -68,9 +68,12 @@ $cropdetectargs += @(
 
 & $ffmpegbinary @cropdetectargs *>&1 | 
   Foreach-Object {
-    $_ -match '(crop=[-\d:]*)' | Out-Null
+    $_ -match 't:([\d]*).*?(crop=[-\d:]*)' | Out-Null
+    if ($matches[1] -ge 0) {
+      Write-Progress -Activity 'Detecting crop settings' -Status "t=$($matches[1]) $($matches[2])" -PercentComplete $($([int]$matches[1] / $CropScan)*100)
+    }
   }
-$crop = $matches[1]
+  $crop = $matches[2]
 Write-Host "Using $crop"
 
 # Extract and normalize color settings
