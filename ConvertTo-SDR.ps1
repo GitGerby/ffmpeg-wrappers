@@ -6,7 +6,7 @@ param (
     $InputFile,
     [String]
     $OutputFile = "$($InputFile)_output.mkv",
-    [ValidateSet('libx265','nvenc', 'qsv')]
+    [ValidateSet('libx265','nvenc', 'qsv','vce')]
     [String]
     $Encoder = 'nvenc',
     [int]
@@ -71,12 +71,28 @@ switch ($Preset){
 }
 
 $QSVARGS = @(
-   '-c:v', 'hevc_qsv',
-   '-adaptive_i', '1',
-   '-adaptive_b', '1',
-   '-global_quality', $Crf,
-   '-preset', $qsvpreset,
-   '-look_ahead', '48'
+  '-c:v', 'hevc_qsv',
+  '-adaptive_i', '1',
+  '-adaptive_b', '1',
+  '-global_quality', $Crf,
+  '-preset', $qsvpreset,
+  '-look_ahead', '48'
+)
+
+$AMFARGS = @(
+  '-c:v', 'hevc_amf',
+  '-rc', '2',
+  '-quality', '0',
+  '-vbaq', '1',
+  '-preanalysis', '1',
+  '-profile:v', '1',
+  '-profile_tier', '1',
+  '-level', '186',
+  '-min_qp_i', '0',
+  '-max_qp_i', '9',
+  '-min_qp_p', '0',
+  '-max_qp_p', $($Crf + 6),
+  '-usage', '0'
 )
 
 # Locate ffmpeg
@@ -88,9 +104,14 @@ if (Test-Path "$PSScriptRoot\ffmpeg.exe") {
   throw "Could not locate ffmpeg in $PSScriptRoot or PATH"
 }
 
-if ($(& $ffmpegbinary *>&1) -notmatch 'opencl' -and -not $DisableOpenCL) {
+Write-Host "Using ffmpeg binary at: $ffmpegbinary"
+<#
+$banner = & $ffmpegbinary *>&1
+
+if ($banner -notmatch 'opencl' -and -not $DisableOpenCL) {
   throw 'ffmpeg was not compiled with OpenCL support and OpenCL was not disabled at runtime'
 }
+#>
 
 if (-not $DoNotCrop){
   Write-Host "Scanning the first $CropScan seconds to determine proper crop settings."
@@ -125,12 +146,16 @@ $encodeargs = @(
 # Init hw device for OpenCL
 if (-not $DisableOpenCL) {
   $encodeargs += @(
-    '-init_hw_device', "opencl=gpu$GpuIndex",
+    '-init_hw_device', "opencl=gpu:$GpuIndex",
     '-filter_hw_device', 'gpu'
   )
 }
 
 # Set decoder
+# Disable hardware decoding when using VCE
+if ($Encoder -eq 'vce') {
+  $DisableHardwareDecode = $true
+}
 if (!$DisableHardwareDecode) {
   switch($Encoder) {
     'nvenc' {
@@ -160,11 +185,12 @@ $encodeargs += @(
 
 # Construct filter graph
 $filters = ''
-if ($Encoder -eq 'qsv') {
-  $filters += 'format=p010,'
+switch ($Encoder) {
+  'qsv' { $filters += 'format=p010,' }
+  'vce' { $filters += 'format=p010,' }
 }
 
-$opencltonemap = "hwupload,tonemap_opencl=t=bt2020:tonemap=$ToneMapMethod:format=p010,hwdownload,format=p010"
+$opencltonemap = "hwupload,tonemap_opencl=t=bt2020:tonemap=$ToneMapMethod"+':format=p010,hwdownload,format=p010'
 $softwaretonemap = "zscale=linear,tonemap=$ToneMapMethod,zscale=transfer=bt709"
 
 if ($DisableOpenCL) {
@@ -190,6 +216,7 @@ switch ($Encoder) {
   'nvenc' { $encodeargs += $NVENCARGS }
   'libx265' { $encodeargs += $LIBX265ARGS }
   'qsv' { $encodeargs += $QSVARGS }
+  'vce' { $encodeargs += $AMFARGS }
 }
 
 # Copy audio and subtitle streams, ensure sufficient muxer space
