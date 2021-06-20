@@ -28,7 +28,9 @@ param (
     $GpuIndex = '0.0',
     [ValidateSet('none','clip','linear','gamma','reinhard','hable','mobius')]
     [string]
-    $ToneMapMethod = 'hable'
+    $ToneMapMethod = 'hable',
+    [switch]
+    $ScaleTo1080
 )
 
 # Define Constants for encoder arguments
@@ -55,7 +57,7 @@ $NVENCARGS = @(
   '-profile:v', '1',
   '-tier', '1',
   '-spatial_aq', '1',
-  '-rc_lookahead', '48',
+  '-temporal_aq', '1',
   '-preset', $nvpreset
 )
 
@@ -164,7 +166,7 @@ if (-not $DisableOpenCL) {
 if ($Encoder -eq 'vce') {
   $DisableHardwareDecode = $true
 }
-if (!$DisableHardwareDecode) {
+if (-not $DisableHardwareDecode) {
   switch($Encoder) {
     'nvenc' {
       $encodeargs += @(
@@ -179,8 +181,10 @@ if (!$DisableHardwareDecode) {
       )
     }
     Default {
-      '-hwaccel', 'auto',
-      '-hwaccel_output_format', 'p010'
+      $encodeargs += @(
+        '-hwaccel', 'auto',
+        '-hwaccel_output_format', 'p010'
+       )
     }
   }
 }
@@ -192,7 +196,11 @@ $encodeargs += @(
 )
 
 # Construct filter graph
-$filters = ''
+$filters = '[0:v:0]'
+
+if($DisableHardwareDecode) {
+  $filters += 'format=p010,'
+}
 
 if (-not $DoNotCrop) {
   $filters += "$crop,"
@@ -212,13 +220,22 @@ if ($DisableOpenCL) {
   $filters += $opencltonemap
 }
 
-switch ($Encoder) {
-  'nvenc' {$filters += ',hwupload_cuda'}
+if ($ScaleTo1080) {
+  switch ($Encoder){
+   'nvenc' { $filters += ',hwupload_cuda,scale_cuda=w=1920:h=1080:interp_algo=lanczos:force_original_aspect_ratio=decrease' }
+   Default { $filters += ',zscale=w=1920:h=1080:force_original_aspect_ratio=decrease' }
+  }
+}
+
+if (-not $ScaleTo1080) {
+  switch ($Encoder) {
+    'nvenc' {$filters += ',hwupload_cuda'}
+  }
 }
 
 # Add filter to encoding args
 $encodeargs += @(
-  '-vf', $filters
+  '-filter_complex', $filters
 )
 
 switch ($Encoder) {
