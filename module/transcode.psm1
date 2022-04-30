@@ -1,4 +1,4 @@
-$script:REGISTRYKEY = $script:REGISTRYKEY
+$script:REGISTRYKEY = 'HKCU:\SOFTWARE\ffmpeg-wrappers'
 $script:COMMONPARAMS = @(
   '-y'
   '-hide_banner', 
