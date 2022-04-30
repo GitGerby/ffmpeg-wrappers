@@ -87,14 +87,13 @@ function Start-Transcode {
   # Find sidecar SRT files to insert into destination file
   $resolvedinput = Get-Item $Source
   $srts = Get-ChildItem $resolvedinput.Directory.FullName -Filter '*.srt' | Where-Object FullName -match $($($resolvedinput.name -split '\.')[0]) | Sort-Object -Descending
-  $inputargs = @()
   $i = 1
   foreach ($srt in $srts) {
     $inputargs += @('-i', $srt.FullName)
     $mapargs += @('-map', "$i", '-metadata:s:s', 'language=eng')
     $i++
   }
-  Write-Verbose "resolved input args to $inputargs"
+  Write-Verbose "Resolved input args to $inputargs"
   
   # Add discovered subtitles to args
   $ffmpegargs += $inputargs 
@@ -113,8 +112,12 @@ function Start-Transcode {
   
   $ffmpegargs += $filterstring
 
-  $ffmpegargs += @($NVENCARGS, '-c:a', 'copy', '-c:s', 'copy', $mapargs, $Destination)
-  Write-Verbose 'Final argument list: ' $($ffmpegargs -join ', ')
+  $ffmpegargs += $NVENCARGS
+  $ffmpegargs += @('-c:a', 'copy', '-c:s', 'copy')
+  $ffmpegargs += $mapargs
+  $ffmpegargs += @($Destination)
+
+  Write-Verbose "Final argument list: $($ffmpegargs -join ', ')"
 
   & $FfmpegPath @$ffmpegargs
 
