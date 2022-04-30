@@ -119,7 +119,7 @@ function Start-Transcode {
 
   Write-Verbose "Final argument list: $($ffmpegargs -join ', ')"
 
-  & $FfmpegPath @$ffmpegargs
+  & $FfmpegPath @ffmpegargs
 
   #& $FfmpegPath @COMMONPARAMS @inputargs -vf "$filterstring" @NVENCARGS -c:a copy -c:s copy @mapargs $Output
 
