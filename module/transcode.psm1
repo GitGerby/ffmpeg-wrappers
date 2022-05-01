@@ -1,6 +1,5 @@
 $script:REGISTRYKEY = 'HKCU:\SOFTWARE\ffmpeg-wrappers'
 $script:COMMONPARAMS = @(
-  '-hide_banner', 
   '-probesize', '6000M',
   '-analyzeduration', '6000M'
 )
@@ -40,7 +39,6 @@ function Start-Transcode {
     [string]$Crop,
     [int]$Crf = 18,
     [string]$Filters,
-    [switch]$Quiet,
     [switch]$NoCrop,
     [string]$Language = 'eng',
     [string]$FfmpegPath,
@@ -73,12 +71,12 @@ function Start-Transcode {
 
   # Begin building arglist
   $ffmpegargs = @()
-  if($Overwrite){
+  if ($Overwrite) {
     $ffmpegargs += @('-y')
   }
   $ffmpegargs += $COMMONPARAMS
   if (-not $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) { 
-    $ffmpegargs += @('-loglevel', 'error', '-stats')
+    $ffmpegargs += @('-hide_banner', '-loglevel', 'error', '-stats')
   }
   
   # Add input file to args and filter on language.
@@ -159,7 +157,7 @@ function Set-FfmpegPath {
   param (
     [string]$Path
   )
-  
+
   if (-not $(Test-Path $script:REGISTRYKEY)) {
     New-Item $script:REGISTRYKEY -Force
   }
