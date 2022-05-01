@@ -1,6 +1,5 @@
 $script:REGISTRYKEY = 'HKCU:\SOFTWARE\ffmpeg-wrappers'
 $script:COMMONPARAMS = @(
-  '-y'
   '-hide_banner', 
   '-probesize', '6000M',
   '-analyzeduration', '6000M'
@@ -44,7 +43,8 @@ function Start-Transcode {
     [switch]$Quiet,
     [switch]$NoCrop,
     [string]$Language = 'eng',
-    [string]$FfmpegPath
+    [string]$FfmpegPath,
+    [switch]$Overwrite
   )
 
   $NVENCARGS = @(
@@ -73,8 +73,10 @@ function Start-Transcode {
 
   # Begin building arglist
   $ffmpegargs = @()
+  if($Overwrite){
+    $ffmpegargs += @('-y')
+  }
   $ffmpegargs += $COMMONPARAMS
-
   if (-not $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) { 
     $ffmpegargs += @('-loglevel', 'error', '-stats')
   }
@@ -107,22 +109,15 @@ function Start-Transcode {
   if ($Filters.Trim() -ne '') {
     $filterstring = $Crop + ';' + $Filters
   }
-
   Write-Verbose "Built simple video filter: $filterstring"
-  
   $ffmpegargs += $filterstring
 
-  $ffmpegargs += $NVENCARGS
-  $ffmpegargs += @('-c:a', 'copy', '-c:s', 'copy')
-  $ffmpegargs += $mapargs
-  $ffmpegargs += @($Destination)
+  # add encoder, mapping, and output args
+  $ffmpegargs += $NVENCARGS + @('-c:a', 'copy', '-c:s', 'copy') + $mapargs + @($Destination)
 
   Write-Verbose "Final argument list: $($ffmpegargs -join ', ')"
 
   & $FfmpegPath @ffmpegargs
-
-  #& $FfmpegPath @COMMONPARAMS @inputargs -vf "$filterstring" @NVENCARGS -c:a copy -c:s copy @mapargs $Output
-
 }
 
 function Get_FfmpegPath {
