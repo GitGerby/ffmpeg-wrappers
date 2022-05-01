@@ -86,7 +86,7 @@ function Start-Transcode {
 
   # Find sidecar SRT files to insert into destination file
   $resolvedinput = Get-Item $Source
-  $srts = Get-ChildItem $resolvedinput.Directory.FullName -Filter '*.srt' | Where-Object FullName -match $($($resolvedinput.name -split '\.')[0]) | Sort-Object -Descending
+  $srts = Get-ChildItem -LiteralPath $resolvedinput.Directory.FullName -Filter '*.srt' | Where-Object FullName -match $($($resolvedinput.name -split '\.')[0]) | Sort-Object -Descending
   $i = 1
   foreach ($srt in $srts) {
     $inputargs += @('-i', $srt.FullName)
