@@ -26,6 +26,9 @@ function Get-Crop {
   & $FfmpegPath @script:COMMONPARAMS -i $Source -vf 'cropdetect=round=2' -t 180 -f null NUL *>&1 | 
   ForEach-Object {
     $_ -match 't:([\d]*).*?(crop=[-\d:]*)' | Out-Null
+    if (([int]$matches[1] -gt 0) -and ($([int]$matches[1] % 30) -eq 0 )) {
+      Write-Progress -Activity 'Crop detection' -Status "Time $($matches[1]) Filter: $($matches[2])" -PercentComplete $($([int]$matches[1] / 180) * 100)
+    }
   }
   Write-Verbose "Setting crop filter to: $($matches[2])"
   return $matches[2]
