@@ -26,7 +26,8 @@ function Get-Crop {
   & $FfmpegPath @script:COMMONPARAMS -i $Source -vf 'cropdetect=round=2' -t 180 -f null NUL *>&1 | 
   ForEach-Object {
     $_ -match 't:([\d]*).*?(crop=[-\d:]*)' | Out-Null
-    if (([int]$matches[1] -gt 0) -and ($([int]$matches[1] % 30) -eq 0 )) {
+    # Write a progress bar during crop detection if -Verbose is specified
+    if (([int]$matches[1] -gt 0) -and ($([int]$matches[1] % 30) -eq 0 ) -and $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
       Write-Progress -Activity 'Crop detection' -Status "Time $($matches[1]) Filter: $($matches[2])" -PercentComplete $($([int]$matches[1] / 180) * 100)
     }
   }
@@ -78,6 +79,7 @@ function Start-Transcode {
     $ffmpegargs += @('-y')
   }
   $ffmpegargs += $COMMONPARAMS
+  # If -Verbose wasn't specified then add args to make ffmpeg quieter
   if (-not $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) { 
     $ffmpegargs += @('-hide_banner', '-loglevel', 'error', '-stats')
   }
