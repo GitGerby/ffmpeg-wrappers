@@ -121,6 +121,7 @@ function Start-Transcode {
   Write-Verbose "Final argument list: $($ffmpegargs -join ', ')"
 
   & $FfmpegPath @ffmpegargs
+  Get-Item -LiteralPath $Destination
 }
 
 function Get_FfmpegPath {
