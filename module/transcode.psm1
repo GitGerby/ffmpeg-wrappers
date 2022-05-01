@@ -85,7 +85,7 @@ function Start-Transcode {
   $mapargs = @('-map', "0:m:language:$Language")
 
   # Find sidecar SRT files to insert into destination file
-  $resolvedinput = Get-Item $Source
+  $resolvedinput = Get-Item -LiteralPath $Source
   $srts = Get-ChildItem -LiteralPath $resolvedinput.Directory.FullName -Filter '*.srt' | Where-Object FullName -match $($($resolvedinput.name -split '\.')[0]) | Sort-Object -Descending
   $i = 1
   foreach ($srt in $srts) {
