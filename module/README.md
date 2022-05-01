@@ -18,7 +18,8 @@
 
 This module is an attempt to productionize some of the code I've put together to
 wrap ffmpeg for nvenc archival transcodes. I may extend support in the future
-for additional encoders. Current functions:
+for additional encoders. All functions below support cmdlet binding and
+`-Verbose` may be of particular interest. 
 
 ## Start-Transcode
 
@@ -28,6 +29,7 @@ for additional encoders. Current functions:
 * Subtitles are copied as is.
 * External SRT files matching the Source file name are injected as additional
   subtitle tracks in the destination file.
+* Output file is placed on the pipeline.
 
 ### Params
 
