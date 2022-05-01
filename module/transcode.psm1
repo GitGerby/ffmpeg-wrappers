@@ -39,10 +39,11 @@ function Get-Crop {
   Write-Verbose "Automatically detecting crop settings for $Source"
   & $FfmpegPath @script:COMMONPARAMS -i $Source -vf 'cropdetect=round=2' -t 180 -f null NUL *>&1 | 
   ForEach-Object {
-    $_ -match 't:([\d]*).*?(crop=[-\d:]*)' | Out-Null
-    # Write a progress bar during crop detection if -Verbose is specified
-    if (([int]$matches[1] -gt 0) -and ($([int]$matches[1] % 30) -eq 0 ) -and $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
-      Write-Progress -Activity 'Crop detection' -Status "Time $($matches[1]) Filter: $($matches[2])" -PercentComplete $($([int]$matches[1] / 180) * 100)
+    if ($_ -match 't:([\d]*).*?(crop=[-\d:]*)') {
+      # Write a progress bar during crop detection if -Verbose is specified
+      if (([int]$matches[1] -gt 0) -and ($([int]$matches[1] % 30) -eq 0 ) -and $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
+        Write-Progress -Activity 'Crop detection' -Status "Time $($matches[1]) Filter: $($matches[2])" -PercentComplete $($([int]$matches[1] / 180) * 100)
+      }
     }
   }
   Write-Verbose "Setting crop filter to: $($matches[2])"
@@ -101,7 +102,7 @@ function Start-Transcode {
   # Add input file to args and filter on language.
   $inputargs = @()
   $inputargs += @('-i', $Source)
-  $mapargs = @('-map', "0:m:language:$Language")
+  $mapargs = @('-map', "0:m:language:$($Language)?")
 
   # Find sidecar SRT files to insert into destination file
   $resolvedinput = Get-Item -LiteralPath $Source
@@ -109,7 +110,7 @@ function Start-Transcode {
   $i = 1
   foreach ($srt in $srts) {
     $inputargs += @('-i', $srt.FullName)
-    $mapargs += @('-map', "$i", '-metadata:s:s', 'language=eng')
+    $mapargs += @('-map', "$i", '-metadata:s:s', "language=$Language")
     $i++
   }
   Write-Verbose "Resolved input args to $inputargs"

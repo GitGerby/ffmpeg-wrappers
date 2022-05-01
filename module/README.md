@@ -19,7 +19,7 @@
 This module is an attempt to productionize some of the code I've put together to
 wrap ffmpeg for nvenc archival transcodes. I may extend support in the future
 for additional encoders. All functions below support cmdlet binding and
-`-Verbose` may be of particular interest. 
+`-Verbose` may be of particular interest.
 
 ## Start-Transcode
 
