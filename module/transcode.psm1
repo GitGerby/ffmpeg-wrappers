@@ -121,7 +121,7 @@ function Start-Transcode {
   $ffmpegargs += $filterstring
 
   # add encoder args
-  switch -match ($Encoder) {
+  switch -exact ($Encoder) {
     'nvenc' {
       $ffmpegargs += @(
         '-c:v', 'hevc_nvenc',
@@ -168,8 +168,8 @@ function Start-Transcode {
         '-crf', $crf,
         '-preset', 'medium'
       )
-
     }
+    default { Write-Error "$Encoder is not a valid encoder." }
   }
 
 
