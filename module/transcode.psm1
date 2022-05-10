@@ -162,11 +162,12 @@ function Start-Transcode {
         '-look_ahead', '48'
       )
     }
-    'x265' { $ffmpegargs += @(
-      '-c:v', 'libx265',
-      '-crf', $crf,
-      '-preset', 'medium'
-    )
+    'x265' {
+      $ffmpegargs += @(
+        '-c:v', 'libx265',
+        '-crf', $crf,
+        '-preset', 'medium'
+      )
 
     }
   }
