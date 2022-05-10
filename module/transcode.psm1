@@ -167,6 +167,7 @@ function Start-Transcode {
         '-c:v', 'libx265',
         '-crf', $crf,
         '-preset', 'medium'
+        '-profile:v','main10'
       )
     }
     default { Write-Error "$Encoder is not a valid encoder." }
@@ -198,7 +199,7 @@ function Get_FfmpegPath {
     return $reg
   }
 
-  $checkpath = (Get-Command 'ffmpeg.exe').Source
+  $checkpath = (Get-Command 'ffmpeg.exe' -ErrorAction SilentlyContinue).Source
   if ($checkpath) {
     return $checkpath
   }
@@ -213,7 +214,7 @@ function Get_FfmpegPath {
     return $scriptlocation
   }
   
-  Write-Error 'Cannot locate ffmpeg.exe'
+  throw 'Cannot locate ffmpeg.exe'
 }
 
 function Set-FfmpegPath {
