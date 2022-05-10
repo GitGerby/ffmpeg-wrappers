@@ -62,7 +62,7 @@ function Start-Transcode {
     [string]$Language = 'eng',
     [string]$FfmpegPath,
     [switch]$Overwrite,
-    [ValidateSet('nvenc', 'vcn', 'qsv', 'x265')]
+    [ValidateSet('nvenc', 'vcn', 'qsv', 'libx265')]
     [string]$Encoder = 'nvenc'
   )
 
@@ -162,7 +162,7 @@ function Start-Transcode {
         '-look_ahead', '48'
       )
     }
-    'x265' {
+    'libx265' {
       $ffmpegargs += @(
         '-c:v', 'libx265',
         '-crf', $crf,
@@ -170,7 +170,7 @@ function Start-Transcode {
         '-profile:v','main10'
       )
     }
-    default { Write-Error "$Encoder is not a valid encoder." }
+    default { throw "$Encoder is not a valid encoder." }
   }
 
 
