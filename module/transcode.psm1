@@ -61,19 +61,9 @@ function Start-Transcode {
     [switch]$NoCrop,
     [string]$Language = 'eng',
     [string]$FfmpegPath,
-    [switch]$Overwrite
-  )
-
-  $NVENCARGS = @(
-    '-c:v', 'hevc_nvenc',
-    '-rc', '1',
-    '-cq', $Crf,
-    '-profile:v', '1',
-    '-tier', '1',
-    '-spatial_aq', '1',
-    '-temporal_aq', '1',
-    '-preset', '1',
-    '-b_ref_mode', '2'
+    [switch]$Overwrite,
+    [ValidateSet('nvenc', 'vcn', 'qsv', 'x265')]
+    [string]$Encoder = 'nvenc'
   )
 
   # Find the binary to call
@@ -130,8 +120,60 @@ function Start-Transcode {
   Write-Verbose "Built simple video filter: $filterstring"
   $ffmpegargs += $filterstring
 
-  # add encoder, mapping, and output args
-  $ffmpegargs += $NVENCARGS + @('-c:a', 'copy', '-c:s', 'copy') + $mapargs + @($Destination)
+  # add encoder args
+  switch -match ($Encoder) {
+    'nvenc' {
+      $ffmpegargs += @(
+        '-c:v', 'hevc_nvenc',
+        '-rc', '1',
+        '-cq', $Crf,
+        '-profile:v', '1',
+        '-tier', '1',
+        '-spatial_aq', '1',
+        '-temporal_aq', '1',
+        '-preset', '1',
+        '-b_ref_mode', '2'
+      )
+    }
+    'vcn' {
+      $ffmpegargs += @(
+        '-c:v', 'hevc_amf',
+        '-rc', '2',
+        '-quality', '0',
+        '-vbaq', '1',
+        '-preanalysis', '1',
+        '-profile:v', '1',
+        '-profile_tier', '1',
+        '-level', '186',
+        '-min_qp_i', '0',
+        '-max_qp_i', '9',
+        '-min_qp_p', '0',
+        '-max_qp_p', $($Crf + 6),
+        '-usage', '0'
+      )
+    }
+    'qsv' {
+      $ffmpegargs += @(
+        '-c:v', 'hevc_qsv',
+        '-adaptive_i', '1',
+        '-adaptive_b', '1',
+        '-global_quality', $Crf,
+        '-preset', '3',
+        '-look_ahead', '48'
+      )
+    }
+    'x265' { $ffmpegargs += @(
+      '-c:v', 'libx265',
+      '-crf', $crf,
+      '-preset', 'medium'
+    )
+
+    }
+  }
+
+
+  # add mapping, and output args
+  $ffmpegargs += @('-c:a', 'copy', '-c:s', 'copy') + $mapargs + @($Destination)
 
   Write-Verbose "Final argument list: $($ffmpegargs -join ', ')"
 
