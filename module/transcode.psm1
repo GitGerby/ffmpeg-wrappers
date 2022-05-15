@@ -22,7 +22,8 @@ function Get-Crop {
   [CmdletBinding()]
   param (
     [string]$Source,
-    [string]$FfmpegPath
+    [string]$FfmpegPath,
+    [switch]$HwDecode
   )
 
   if (-not $FfmpegPath) {
@@ -35,9 +36,14 @@ function Get-Crop {
     }
     Write-Verbose "Using ffmpeg at: $FfmpegPath"
   }
+  $params = $script:COMMONPARAMS
+  if($HwDecode) {
+    $params += @('-hwaccel','auto')
+  }
+
 
   Write-Verbose "Automatically detecting crop settings for $Source"
-  & $FfmpegPath @script:COMMONPARAMS -i $Source -vf 'cropdetect=round=2' -t 180 -f null NUL *>&1 | 
+  & $FfmpegPath @params -i $Source -vf 'cropdetect=round=2' -t 180 -f null NUL *>&1 | 
   ForEach-Object {
     if ($_ -match 't:([\d]*).*?(crop=[-\d:]*)') {
       # Write a progress bar during crop detection if -Verbose is specified
@@ -63,7 +69,8 @@ function Start-Transcode {
     [string]$FfmpegPath,
     [switch]$Overwrite,
     [ValidateSet('nvenc', 'vcn', 'qsv', 'libx265')]
-    [string]$Encoder = 'nvenc'
+    [string]$Encoder = 'nvenc',
+    [switch]$HwDecode
   )
 
   # Find the binary to call
@@ -88,11 +95,15 @@ function Start-Transcode {
   if (-not $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) { 
     $ffmpegargs += @('-hide_banner', '-loglevel', 'error', '-stats')
   }
+
+  if ($HwDecode) {
+    $ffmpegargs += @('-hwaccel','auto')
+  }
   
   # Add input file to args and filter on language.
   $inputargs = @()
   $inputargs += @('-i', $Source)
-  $mapargs = @('-map', "0:m:language:$($Language)?")
+  $mapargs = @('-map', "0:m:language:$($Language)?", '-map','0:v:0')
 
   # Find sidecar SRT files to insert into destination file
   $resolvedinput = Get-Item -LiteralPath $Source
@@ -110,16 +121,18 @@ function Start-Transcode {
 
   # build simple filter chain
   if ((-not $NoCrop) -and (-not $Crop)) {
-    $Crop = Get-Crop -Source $Source -FfmpegPath $FfmpegPath
+    $Crop = Get-Crop -Source $Source -FfmpegPath $FfmpegPath -HwDecode:$HwDecode
   }
-
+  
   $filterstring = @('-vf', $Crop)
   if ($Filters.Trim() -ne '') {
-    $filterstring = $Crop + ';' + $Filters
+    $filterstring[1] = $Crop + ';' + $Filters
   }
-  Write-Verbose "Built simple video filter: $filterstring"
-  $ffmpegargs += $filterstring
-
+  if ($filterstring[1].Trim()) {
+    Write-Verbose "Built simple video filter: $filterstring"
+    $ffmpegargs += $filterstring
+  }
+  
   # add encoder args
   switch -exact ($Encoder) {
     'nvenc' {
