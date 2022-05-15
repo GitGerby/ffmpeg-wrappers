@@ -71,7 +71,7 @@ function Start-Transcode {
     [string]$Language = 'eng',
     [string]$FfmpegPath,
     [switch]$Overwrite,
-    [ValidateSet('auto','nvenc', 'vcn', 'qsv', 'libx265')]
+    [ValidateSet('auto', 'nvenc', 'vcn', 'qsv', 'libx265')]
     [string]$Encoder = 'auto',
     [switch]$HwDecode
   )
@@ -87,16 +87,24 @@ function Start-Transcode {
       }
       Write-Verbose "Using ffmpeg at: $FfmpegPath"
     }
+
+    if ($Encoder -eq 'auto') {
+      $Encoder = Get_VideoEncoder
+      Write-Verbose "Autodetection resulted in: $Encoder"
+    }
+
+    # Begin building arglist
+    $beginargs = @()  
+    if ($Overwrite) {
+      $beginargs += @('-y')
+    }
+    $beginargs += $script:COMMONPARAMS
     $pipeoutput = @()
   }
 
   PROCESS {
-    # Begin building arglist
-    $ffmpegargs = @()
-    if ($Overwrite) {
-      $ffmpegargs += @('-y')
-    }
-    $ffmpegargs += $COMMONPARAMS
+    $ffmpegargs = $beginargs
+
     # If -Verbose wasn't specified then add args to make ffmpeg quieter
     if (-not $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) { 
       $ffmpegargs += @('-hide_banner', '-loglevel', 'error', '-stats')
@@ -137,10 +145,6 @@ function Start-Transcode {
     if ($filterstring[1].Trim()) {
       Write-Verbose "Built simple video filter: $filterstring"
       $ffmpegargs += $filterstring
-    }
-
-    if ($Encoder -eq 'auto') {
-      $Encoder = Get_VideoEncoder
     }
     
     # add encoder args
