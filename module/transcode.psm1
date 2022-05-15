@@ -21,6 +21,7 @@ $script:COMMONPARAMS = @(
 function Get-Crop {
   [CmdletBinding()]
   param (
+    [ValidateNotNullOrEmpty()]
     [string]$Source,
     [string]$FfmpegPath,
     [switch]$HwDecode
@@ -37,8 +38,8 @@ function Get-Crop {
     Write-Verbose "Using ffmpeg at: $FfmpegPath"
   }
   $params = $script:COMMONPARAMS
-  if($HwDecode) {
-    $params += @('-hwaccel','auto')
+  if ($HwDecode) {
+    $params += @('-hwaccel', 'auto')
   }
 
 
@@ -59,7 +60,9 @@ function Get-Crop {
 function Start-Transcode {
   [CmdletBinding()]
   param (
+    [ValidateNotNullOrEmpty()]
     [string]$Source,
+    [ValidateNotNullOrEmpty()]
     [string]$Destination,
     [string]$Crop,
     [int]$Crf = 18,
@@ -72,128 +75,137 @@ function Start-Transcode {
     [string]$Encoder = 'nvenc',
     [switch]$HwDecode
   )
-
-  # Find the binary to call
-  if (-not $FfmpegPath) {
-    try {
-      $FfmpegPath = Get_FfmpegPath
+  BEGIN {
+    # Find the binary to call
+    if (-not $FfmpegPath) {
+      try {
+        $FfmpegPath = Get_FfmpegPath
+      }
+      catch {
+        Set-FfmpegPath
+        $FfmpegPath = Get_FfmpegPath
+      }
+      Write-Verbose "Using ffmpeg at: $FfmpegPath"
     }
-    catch {
-      Set-FfmpegPath
-      $FfmpegPath = Get_FfmpegPath
+    $pipeoutput = @()
+  }
+
+  PROCESS {
+    # Begin building arglist
+    $ffmpegargs = @()
+    if ($Overwrite) {
+      $ffmpegargs += @('-y')
     }
-    Write-Verbose "Using ffmpeg at: $FfmpegPath"
-  }
+    $ffmpegargs += $COMMONPARAMS
+    # If -Verbose wasn't specified then add args to make ffmpeg quieter
+    if (-not $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) { 
+      $ffmpegargs += @('-hide_banner', '-loglevel', 'error', '-stats')
+    }
 
-  # Begin building arglist
-  $ffmpegargs = @()
-  if ($Overwrite) {
-    $ffmpegargs += @('-y')
-  }
-  $ffmpegargs += $COMMONPARAMS
-  # If -Verbose wasn't specified then add args to make ffmpeg quieter
-  if (-not $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) { 
-    $ffmpegargs += @('-hide_banner', '-loglevel', 'error', '-stats')
-  }
+    if ($HwDecode) {
+      $ffmpegargs += @('-hwaccel', 'auto')
+    }
+    
+    # Add input file to args and filter on language.
+    $inputargs = @()
+    $inputargs += @('-i', $Source)
+    $mapargs = @('-map', "0:m:language:$($Language)?", '-map', '0:v:0')
 
-  if ($HwDecode) {
-    $ffmpegargs += @('-hwaccel','auto')
+    # Find sidecar SRT files to insert into destination file
+    $resolvedinput = Get-Item -LiteralPath $Source
+    $srts = Get-ChildItem -LiteralPath $resolvedinput.Directory.FullName -Filter '*.srt' | Where-Object FullName -match $($($resolvedinput.name -split '\.')[0]) | Sort-Object -Descending
+    $i = 1
+    foreach ($srt in $srts) {
+      $inputargs += @('-i', $srt.FullName)
+      $mapargs += @('-map', "$i", '-metadata:s:s', "language=$Language")
+      $i++
+    }
+    Write-Verbose "Resolved input args to $inputargs"
+    
+    # Add discovered subtitles to args
+    $ffmpegargs += $inputargs 
+
+    # build simple filter chain
+    if ((-not $NoCrop) -and (-not $Crop)) {
+      $Crop = Get-Crop -Source $Source -FfmpegPath $FfmpegPath -HwDecode:$HwDecode
+    }
+    
+    $filterstring = @('-vf', $Crop)
+    if ($Filters.Trim() -ne '') {
+      $filterstring[1] = $Crop + ';' + $Filters
+    }
+    if ($filterstring[1].Trim()) {
+      Write-Verbose "Built simple video filter: $filterstring"
+      $ffmpegargs += $filterstring
+    }
+    
+    # add encoder args
+    switch -exact ($Encoder) {
+      'nvenc' {
+        $ffmpegargs += @(
+          '-c:v', 'hevc_nvenc',
+          '-rc', '1',
+          '-cq', $Crf,
+          '-profile:v', '1',
+          '-tier', '1',
+          '-spatial_aq', '1',
+          '-temporal_aq', '1',
+          '-preset', '1',
+          '-b_ref_mode', '2'
+        )
+      }
+      'vcn' {
+        $ffmpegargs += @(
+          '-c:v', 'hevc_amf',
+          '-rc', '2',
+          '-quality', '0',
+          '-vbaq', '1',
+          '-preanalysis', '1',
+          '-profile:v', '1',
+          '-profile_tier', '1',
+          '-level', '186',
+          '-min_qp_i', '0',
+          '-max_qp_i', '9',
+          '-min_qp_p', '0',
+          '-max_qp_p', $($Crf + 6),
+          '-usage', '0'
+        )
+      }
+      'qsv' {
+        $ffmpegargs += @(
+          '-c:v', 'hevc_qsv',
+          '-adaptive_i', '1',
+          '-adaptive_b', '1',
+          '-global_quality', $Crf,
+          '-preset', '3',
+          '-look_ahead', '48'
+        )
+      }
+      'libx265' {
+        $ffmpegargs += @(
+          '-c:v', 'libx265',
+          '-crf', $crf,
+          '-preset', 'medium'
+          '-profile:v', 'main10'
+        )
+      }
+      default { throw "$Encoder is not a valid encoder." }
+    }
+
+
+    # add mapping, and output args
+    $ffmpegargs += @('-c:a', 'copy', '-c:s', 'copy') + $mapargs + @($Destination)
+
+    Write-Verbose "Final argument list: $($ffmpegargs -join ', ')"
+
+    & $FfmpegPath @ffmpegargs
+
+    $pipeoutput += Get-Item -LiteralPath $Destination
   }
   
-  # Add input file to args and filter on language.
-  $inputargs = @()
-  $inputargs += @('-i', $Source)
-  $mapargs = @('-map', "0:m:language:$($Language)?", '-map','0:v:0')
-
-  # Find sidecar SRT files to insert into destination file
-  $resolvedinput = Get-Item -LiteralPath $Source
-  $srts = Get-ChildItem -LiteralPath $resolvedinput.Directory.FullName -Filter '*.srt' | Where-Object FullName -match $($($resolvedinput.name -split '\.')[0]) | Sort-Object -Descending
-  $i = 1
-  foreach ($srt in $srts) {
-    $inputargs += @('-i', $srt.FullName)
-    $mapargs += @('-map', "$i", '-metadata:s:s', "language=$Language")
-    $i++
+  END {
+    $pipeoutput
   }
-  Write-Verbose "Resolved input args to $inputargs"
-  
-  # Add discovered subtitles to args
-  $ffmpegargs += $inputargs 
-
-  # build simple filter chain
-  if ((-not $NoCrop) -and (-not $Crop)) {
-    $Crop = Get-Crop -Source $Source -FfmpegPath $FfmpegPath -HwDecode:$HwDecode
-  }
-  
-  $filterstring = @('-vf', $Crop)
-  if ($Filters.Trim() -ne '') {
-    $filterstring[1] = $Crop + ';' + $Filters
-  }
-  if ($filterstring[1].Trim()) {
-    Write-Verbose "Built simple video filter: $filterstring"
-    $ffmpegargs += $filterstring
-  }
-  
-  # add encoder args
-  switch -exact ($Encoder) {
-    'nvenc' {
-      $ffmpegargs += @(
-        '-c:v', 'hevc_nvenc',
-        '-rc', '1',
-        '-cq', $Crf,
-        '-profile:v', '1',
-        '-tier', '1',
-        '-spatial_aq', '1',
-        '-temporal_aq', '1',
-        '-preset', '1',
-        '-b_ref_mode', '2'
-      )
-    }
-    'vcn' {
-      $ffmpegargs += @(
-        '-c:v', 'hevc_amf',
-        '-rc', '2',
-        '-quality', '0',
-        '-vbaq', '1',
-        '-preanalysis', '1',
-        '-profile:v', '1',
-        '-profile_tier', '1',
-        '-level', '186',
-        '-min_qp_i', '0',
-        '-max_qp_i', '9',
-        '-min_qp_p', '0',
-        '-max_qp_p', $($Crf + 6),
-        '-usage', '0'
-      )
-    }
-    'qsv' {
-      $ffmpegargs += @(
-        '-c:v', 'hevc_qsv',
-        '-adaptive_i', '1',
-        '-adaptive_b', '1',
-        '-global_quality', $Crf,
-        '-preset', '3',
-        '-look_ahead', '48'
-      )
-    }
-    'libx265' {
-      $ffmpegargs += @(
-        '-c:v', 'libx265',
-        '-crf', $crf,
-        '-preset', 'medium'
-        '-profile:v','main10'
-      )
-    }
-    default { throw "$Encoder is not a valid encoder." }
-  }
-
-
-  # add mapping, and output args
-  $ffmpegargs += @('-c:a', 'copy', '-c:s', 'copy') + $mapargs + @($Destination)
-
-  Write-Verbose "Final argument list: $($ffmpegargs -join ', ')"
-
-  & $FfmpegPath @ffmpegargs
-  Get-Item -LiteralPath $Destination
 }
 
 function Get_FfmpegPath {
