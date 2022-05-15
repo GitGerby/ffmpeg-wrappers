@@ -71,8 +71,8 @@ function Start-Transcode {
     [string]$Language = 'eng',
     [string]$FfmpegPath,
     [switch]$Overwrite,
-    [ValidateSet('nvenc', 'vcn', 'qsv', 'libx265')]
-    [string]$Encoder = 'nvenc',
+    [ValidateSet('auto','nvenc', 'vcn', 'qsv', 'libx265')]
+    [string]$Encoder = 'auto',
     [switch]$HwDecode
   )
   BEGIN {
@@ -138,6 +138,10 @@ function Start-Transcode {
       Write-Verbose "Built simple video filter: $filterstring"
       $ffmpegargs += $filterstring
     }
+
+    if ($Encoder -eq 'auto') {
+      $Encoder = Get_VideoEncoder
+    }
     
     # add encoder args
     switch -exact ($Encoder) {
@@ -181,7 +185,7 @@ function Start-Transcode {
           '-look_ahead', '48'
         )
       }
-      'libx265' {
+      default {
         $ffmpegargs += @(
           '-c:v', 'libx265',
           '-crf', $crf,
@@ -189,7 +193,6 @@ function Start-Transcode {
           '-profile:v', 'main10'
         )
       }
-      default { throw "$Encoder is not a valid encoder." }
     }
 
 
@@ -257,5 +260,14 @@ function Set-FfmpegPath {
   }
   else {
     New-ItemProperty -Path $script:REGISTRYKEY -Name 'ffmpeg_binary' -Value $(Read-Host -Prompt 'Path to ffmpeg.exe: ') -Force
+  }
+}
+
+function Get_VideoEncoder {
+  switch -Regex ((Get-CimInstance Win32_VideoController).Name ) {
+    'nvidia' {return 'nvenc'}
+    'intel'  {return 'intel'}
+    'amd'    {return 'vcn'}
+    default  {return 'libx265'}
   }
 }
