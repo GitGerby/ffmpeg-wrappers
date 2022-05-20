@@ -293,7 +293,8 @@ function Get_VideoEncoder {
 function Get-VideoCodec {
   [CmdletBinding()]
   param (
+    [Parameter(Mandatory)]
     [string]$Path
   )
-  ffprobe -v error -select_streams v:0 -probesize 6000M -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 $Source.FullName
+  ffprobe -v error -select_streams v:0 -probesize 6000M -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 $Path.FullName
 }
