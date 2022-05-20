@@ -60,8 +60,10 @@ function Get-Crop {
 function Start-Transcode {
   [CmdletBinding()]
   param (
+    [Parameter(ValueFromPipelineByPropertyName)]
     [ValidateNotNullOrEmpty()]
     [string]$Source,
+    [Parameter(ValueFromPipelineByPropertyName)]
     [ValidateNotNullOrEmpty()]
     [string]$Destination,
     [string]$Crop,
@@ -269,9 +271,18 @@ function Set-FfmpegPath {
 
 function Get_VideoEncoder {
   switch -Regex ((Get-CimInstance Win32_VideoController).Name ) {
-    'nvidia' {return 'nvenc'}
-    'intel'  {return 'intel'}
-    'amd'    {return 'vcn'}
-    default  {return 'libx265'}
+    'nvidia' {$n = $true}
+    'intel'  {$i = $true}
+    'amd'    {$a = $true}
   }
+  if ($n) {
+    return 'nvenc'
+  }
+  if ($i) {
+    return 'qsv'
+  }
+  if ($a) {
+    return 'vcn'
+  }
+  return 'libx265'
 }
