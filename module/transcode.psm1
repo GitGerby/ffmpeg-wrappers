@@ -123,7 +123,7 @@ function Start-Transcode {
 
     # Find sidecar SRT files to insert into destination file
     $resolvedinput = Get-Item -LiteralPath $Source
-    $srts = Get-ChildItem -LiteralPath $resolvedinput.Directory.FullName -Filter '*.srt' | Where-Object FullName -match $($($resolvedinput.name -split '\.')[0]) | Sort-Object -Descending
+    $srts = Get-ChildItem -LiteralPath $resolvedinput.Directory.FullName -Filter '*.srt' | Where-Object FullName -match "$([Regex]::Escape($($($resolvedinput.name -split '\.')[0])))\." | Sort-Object -Descending
     $i = 1
     foreach ($srt in $srts) {
       $inputargs += @('-i', $srt.FullName)
@@ -165,7 +165,7 @@ function Start-Transcode {
         )
       }
       'copy' {
-        '-c:v', 'copy'
+        $ffmpegargs += @('-c:v', 'copy')
       }
       'vcn' {
         $ffmpegargs += @(
