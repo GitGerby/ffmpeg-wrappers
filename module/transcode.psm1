@@ -274,9 +274,9 @@ function Set-FfmpegPath {
 
 function Get_VideoEncoder {
   switch -Regex ((Get-CimInstance Win32_VideoController).Name ) {
-    'nvidia' {$n = $true}
-    'intel'  {$i = $true}
-    'amd'    {$a = $true}
+    'nvidia' { $n = $true }
+    'intel' { $i = $true }
+    'amd' { $a = $true }
   }
   if ($n) {
     return 'nvenc'
@@ -293,7 +293,7 @@ function Get_VideoEncoder {
 function Get-VideoCodec {
   [CmdletBinding()]
   param (
-    [string] $Path
+    [string]$Path
   )
   ffprobe -v error -select_streams v:0 -probesize 6000M -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 $Source.FullName
 }
