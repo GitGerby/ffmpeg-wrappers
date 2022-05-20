@@ -286,3 +286,11 @@ function Get_VideoEncoder {
   }
   return 'libx265'
 }
+
+function Get-VideoCodec {
+  [CmdletBinding()]
+  param (
+    [string] $Path
+  )
+  ffprobe -v error -select_streams v:0 -probesize 6000M -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 $Source.FullName
+}
