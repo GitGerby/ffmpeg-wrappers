@@ -73,7 +73,7 @@ function Start-Transcode {
     [string]$Language = 'eng',
     [string]$FfmpegPath,
     [switch]$Overwrite,
-    [ValidateSet('auto', 'nvenc', 'vcn', 'qsv', 'libx265')]
+    [ValidateSet('auto', 'copy', 'nvenc', 'vcn', 'qsv', 'libx265')]
     [string]$Encoder = 'auto',
     [switch]$HwDecode
   )
@@ -163,6 +163,9 @@ function Start-Transcode {
           '-preset', '1',
           '-b_ref_mode', '2'
         )
+      }
+      'copy' {
+        '-c:v', 'copy'
       }
       'vcn' {
         $ffmpegargs += @(
